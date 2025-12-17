@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.backend.anime.model.AnimeMapper">
+    <!-- 1. 검색어로 애니 조회 -->
+    <select id="findAnimeByKeyword" resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+        SELECT id, title, poster_url AS posterUrl, overview, vote_average AS voteAverage, vote_count AS voteCount, popularity
+        FROM tmdb_anime
+        WHERE title LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY popularity DESC, title ASC
+    </select>
+
+    <!-- 2. DB 내 애니 저장 -->
+    <insert id="insertAnime" parameterType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+        INSERT INTO tmdb_anime (
+            id,
+            title,
+            poster_url,
+            overview,
+            vote_average,
+            vote_count,
+            popularity
+        )
+        VALUES (
+            #{id},
+            #{title},
+            #{posterUrl},
+            #{overview},
+            #{voteAverage},
+            #{voteCount},
+            #{popularity}
+        )
+        <!--키가 중복되면 insert 대신 update-->
+        ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            poster_url = VALUES(poster_url),
+            overview = VALUES(overview),
+            vote_average = VALUES(vote_average),
+            vote_count = VALUES(vote_count),
+            popularity = VALUES(popularity),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <!-- 3. 애니-장르 매핑 저장 -->
+    <insert id="insertAnimeGenre">
+        <!-- pk이기 때문에 IGNORE -->
+        INSERT IGNORE INTO anime_genre(tmdb_genre_id, anime_id)
+        VALUES (#{genreId}, #{animeId})
+    </insert>
+
+    <!-- 4. 임베딩용: 전체 애니 임베딩 생성 -->
+    <select id="findAllForEmbedding" resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+        SELECT id, title, poster_url AS posterUrl, overview, vote_average AS voteAverage, vote_count AS voteCount, popularity AS popularity
+        FROM tmdb_anime
+    </select>
+
+    <!--  5. 임베딩용: 유저가 좋아하는 애니 3개에 대해서만 임베딩 생성  -->
+    <select id="findByIdForEmbedding" resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+        SELECT id, title, overview, popularity, vote_average, vote_count
+        FROM tmdb_anime
+        WHERE id = #{id}
+    </select>
+
+    <!-- 6. 임베딩용: 애니 하나의 장르 이름 조회 -->
+    <select id="findGenresById" resultType="string">
+        SELECT g.name
+        FROM tmdb_genre g
+        JOIN anime_genre ag ON ag.tmdb_genre_id = g.id
+        WHERE ag.anime_id = #{animeId}
+    </select>
+
+    <!--  7. 콘텐츠 유사도 기반 추천 결과 반환  -->
+    <select id="findByIds" resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+        SELECT id, title, poster_url AS posterUrl, overview, vote_average, vote_count, popularity
+        FROM tmdb_anime
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>
+
