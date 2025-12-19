@@ -169,13 +169,6 @@ SELECT * FROM tmdb_anime;
 SELECT * FROM tmdb_genre;
 select * from anime_genre;
 
-
-TRUNCATE TABLE anime_genre;
-TRUNCATE TABLE tmdb_anime;
-DELETE FROM tmdb_anime WHERE id = 57911;
-SET SQL_SAFE_UPDATES = 0;
-DELETE FROM anime_genre WHERE anime_id = 57911;
-
 desc user; 
 
 SELECT id, title, popularity, overview
@@ -195,9 +188,18 @@ VALUES
 
 select * from user;
 select count(*) from tmdb_anime;
- 
+select count(*) from anime_genre;
 SELECT id FROM user;
 
+
+CREATE TABLE anime_genre_backup AS
+SELECT * FROM anime_genre;
+
+TRUNCATE TABLE anime_genre;
+TRUNCATE TABLE tmdb_anime;
+DELETE FROM tmdb_anime WHERE id = 57911;
+SET SQL_SAFE_UPDATES = 0;
+DELETE FROM anime_genre WHERE anime_id = 57911;
 
 
 

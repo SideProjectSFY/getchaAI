@@ -13,8 +13,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @MapperScan("com.ssafy.backend.*.model")
 public class GetchaBackendApplication {
 
+
     public static void main(String[] args) {
         SpringApplication.run(GetchaBackendApplication.class, args);
+
     }
 }
 
