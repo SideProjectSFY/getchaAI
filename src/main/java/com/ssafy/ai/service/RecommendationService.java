@@ -24,17 +24,26 @@ public class RecommendationService {
         User user = userMapper.findById(userId);
 
         List<List<Double>> vectors = new ArrayList<>();
+        List<Double> weights = new ArrayList<>();
 
-        if (user.getLikedAnimeId1() != null)
+        if (user.getLikedAnimeId1() != null) {
             vectors.add(embeddingService.getAnimeEmbedding(user.getLikedAnimeId1()));
-        if (user.getLikedAnimeId2() != null)
+            weights.add(0.5); //대표 선호
+        }
+
+        if (user.getLikedAnimeId2() != null) {
             vectors.add(embeddingService.getAnimeEmbedding(user.getLikedAnimeId2()));
-        if (user.getLikedAnimeId3() != null)
+            weights.add(0.3);
+        }
+
+        if (user.getLikedAnimeId3() != null) {
             vectors.add(embeddingService.getAnimeEmbedding(user.getLikedAnimeId3()));
+            weights.add(0.2);
+        }
 
-        List<Double> avg = embeddingService.averageEmbedding(vectors);
+        List<Double> userVector = embeddingService.weightedUserEmbedding(vectors, weights);
 
-        List<String> ids = embeddingService.querySimilarAnime(avg, 5);
+        List<String> ids = embeddingService.querySimilarAnime(userVector, 5);
 
         List<Long> animeIds = ids.stream()
                 .map(Long::valueOf)

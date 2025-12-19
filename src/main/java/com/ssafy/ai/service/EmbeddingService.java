@@ -80,10 +80,70 @@ public class EmbeddingService {
             }
         }
 
-        /**
-         * Pinecone에 벡터 저장
-         */
-    public void saveVectorToPinecone(Long id, List<Double> vector) throws IOException {
+    /**
+     * 단일 애니 임베딩 생성
+     */
+    public List<Double> getAnimeEmbedding(Long animeId) throws IOException {
+
+        TmdbAnimeEntityDto anime = animeMapper.findByIdForEmbedding(animeId);
+
+        String overview = anime.getOverview();
+        if (overview == null || overview.isBlank()) {
+            overview = "No overview available.";
+        }
+
+        List<String> genres = animeMapper.findGenresById(animeId);
+        String genreText = genres.isEmpty() ? "Unknown" : String.join(", ", genres);
+
+        String text = """
+passage: %s
+
+Overview:
+%s
+
+Genres:
+%s
+""".formatted(anime.getTitle(), overview, genreText);
+
+        return createEmbedding(text);
+    }
+
+    public List<Double> averageEmbedding(List<List<Double>> vectors) {
+
+        int size = vectors.get(0).size();
+        List<Double> avg = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            double sum = 0;
+            for (List<Double> v : vectors) {
+                sum += v.get(i);
+            }
+            avg.add(sum / vectors.size());
+        }
+        return avg;
+    }
+
+    public List<Double> weightedUserEmbedding(
+            List<List<Double>> vectors,
+            List<Double> weights
+    ) {
+        int size = vectors.get(0).size();
+        List<Double> result = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            double sum = 0;
+            for (int j = 0; j < vectors.size(); j++) {
+                sum += vectors.get(j).get(i) * weights.get(j);
+            }
+            result.add(sum);
+        }
+        return result;
+    }
+
+    /**
+     * Pinecone에 벡터 저장
+     */
+    public void saveVectorToPinecone(Long id, List<Double> vector, String title, String genreText, double popularity) throws IOException {
         JsonObject vectorObj = new JsonObject();
         vectorObj.addProperty("id", String.valueOf(id));
 
@@ -92,6 +152,14 @@ public class EmbeddingService {
             valuesArray.add(val.floatValue());
         }
         vectorObj.add("values", valuesArray);
+
+        // metadata 추가
+        JsonObject metadata = new JsonObject();
+        metadata.addProperty("title", title);
+        metadata.addProperty("genres", genreText);
+        metadata.addProperty("popularity", popularity);
+
+        vectorObj.add("metadata", metadata);
 
         JsonArray vectorsArray = new JsonArray();
         vectorsArray.add(vectorObj);
@@ -119,43 +187,46 @@ public class EmbeddingService {
     }
 
     /**
-     * DB 전체 → 임베딩 생성 → Pinecone 저장
+     * 대량 파이프라인: DB 전체 → 임베딩 생성 → Pinecone 저장
      */
     public void generateEmbeddingsForAllAnime() {
         List<TmdbAnimeEntityDto> list = animeMapper.findAllForEmbedding();
 
         System.out.println("총 애니정보 수: " + list.size());
 
-        int maxCount = 867; //pinecone에 저장할 데이터 갯수
+        int maxCount = 500; //pinecone에 저장할 데이터 갯수
         int count = 0;
         int successCount = 0;
         int failCount = 0;
 
-        for (TmdbAnimeEntityDto anime : list) { //TmdbAnime 빨간 줄
+
+        for (TmdbAnimeEntityDto anime : list) {
             if (count >= maxCount) {
                 System.out.println("최대 갯수 도달 " + maxCount + " items!");
                 break;
             }
 
+            // 1. 임베딩 개선용 데이터 전처리
+            String overview = anime.getOverview();
+            if (overview == null || overview.isBlank()) {
+                continue; // 텍스트 정보 부족 → 임베딩 제외
+            }
+
             count++;
 
             try {
-                //임베딩 개선
-                String title = anime.getTitle(); //빨간줄
-                String overview = anime.getOverview(); //빨간줄
-                if (overview == null || overview.isBlank()) {
-                    overview = "No detailed overview available.";
-                }
+                //2. 유효한 데이터만 처리
+                String title = anime.getTitle();
 
                 // 장르 불러오기
-                List<String> genres = animeMapper.findGenresById(anime.getId()); //빨간줄
+                List<String> genres = animeMapper.findGenresById(anime.getId());
                 String genreText = genres.isEmpty() ? "Unknown" : String.join(", ", genres);
 
                 // popularity + vote 정보도 포함
                 String popularityText =
-                        "Popularity: " + anime.getPopularity() + //빨간줄
-                                ", Rating: " + anime.getVoteAverage() + //빨간줄
-                                ", Votes: " + anime.getVoteCount(); //빨간줄
+                        "Popularity: " + anime.getPopularity() +
+                                ", Rating: " + anime.getVoteAverage() +
+                                ", Votes: " + anime.getVoteCount();
 
                 // passage: 프리픽스 사용
                 String text = """
@@ -175,10 +246,11 @@ Genres:
                 }
 
                 List<Double> embedding = createEmbedding(text);
-                saveVectorToPinecone(anime.getId(), embedding); //빨간줄
+                saveVectorToPinecone(anime.getId(), embedding, anime.getTitle(), genreText, anime.getPopularity()
+                );
 
                 successCount++;
-                System.out.println("✅ [" + count + "/" + maxCount + "] 저장: " + anime.getTitle()); //빨간줄
+                System.out.println("✅ [" + count + "/" + maxCount + "] 저장: " + anime.getTitle());
 
                 // 큰 모델이라 조금 더 기다림
                 Thread.sleep(3000);
@@ -195,6 +267,9 @@ Genres:
         System.out.println("총 처리 갯수: " + count);
     }
 
+    /**
+     * 유사도 조회
+     */
     public List<String> querySimilarAnime(List<Double> vector, int topK) throws IOException {
 
         JsonObject requestBody = new JsonObject();
@@ -229,46 +304,5 @@ Genres:
             return ids;
         }
     }
-
-    public List<Double> averageEmbedding(List<List<Double>> vectors) {
-
-        int size = vectors.get(0).size();
-        List<Double> avg = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            double sum = 0;
-            for (List<Double> v : vectors) {
-                sum += v.get(i);
-            }
-            avg.add(sum / vectors.size());
-        }
-        return avg;
-    }
-
-    public List<Double> getAnimeEmbedding(Long animeId) throws IOException {
-
-        TmdbAnimeEntityDto anime = animeMapper.findByIdForEmbedding(animeId);
-
-        String overview = anime.getOverview();
-        if (overview == null || overview.isBlank()) {
-            overview = "No overview available.";
-        }
-
-        List<String> genres = animeMapper.findGenresById(animeId);
-        String genreText = genres.isEmpty() ? "Unknown" : String.join(", ", genres);
-
-        String text = """
-passage: %s
-
-Overview:
-%s
-
-Genres:
-%s
-""".formatted(anime.getTitle(), overview, genreText);
-
-        return createEmbedding(text);
-    }
-
 
 }

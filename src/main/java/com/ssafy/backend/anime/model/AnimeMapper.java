@@ -25,7 +25,7 @@ public interface AnimeMapper {
     TmdbAnimeEntityDto findByIdForEmbedding(@Param("id") Long id);
 
     // 6. 애니 1개의 장르 문자열 조회
-    List<String> findGenresById(Long animeId);
+    List<String> findGenresById(@Param("animeId") Long animeId);
 
     // 7. 콘텐츠 유사도 기반 추천 결과 반환
     List<TmdbAnimeEntityDto> findByIds(@Param("ids") List<Long> ids);

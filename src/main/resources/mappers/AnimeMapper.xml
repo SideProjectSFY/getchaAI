@@ -51,9 +51,17 @@
     </insert>
 
     <!-- 4. 임베딩용: 전체 애니 임베딩 생성 -->
-    <select id="findAllForEmbedding" resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
-        SELECT id, title, poster_url AS posterUrl, overview, vote_average AS voteAverage, vote_count AS voteCount, popularity AS popularity
+    <select id="findAllForEmbedding"
+            resultType="com.ssafy.backend.anime.model.TmdbAnimeEntityDto">
+    <![CDATA[
+        SELECT id, title, poster_url AS posterUrl,
+               overview, vote_average AS voteAverage,
+               vote_count AS voteCount, popularity AS popularity
         FROM tmdb_anime
+        WHERE overview IS NOT NULL
+          AND TRIM(overview) <> ''
+        ORDER BY popularity DESC
+        ]]>
     </select>
 
     <!--  5. 임베딩용: 유저가 좋아하는 애니 3개에 대해서만 임베딩 생성  -->
