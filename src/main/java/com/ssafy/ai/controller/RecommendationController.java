@@ -2,6 +2,8 @@ package com.ssafy.ai.controller;
 
 import com.ssafy.ai.service.RecommendationService;
 import com.ssafy.backend.anime.model.TmdbAnimeEntityDto;
+import com.ssafy.backend.goods.model.GoodsResponseDto;
+import com.ssafy.backend.user.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,4 +21,14 @@ public class RecommendationController {
     public List<TmdbAnimeEntityDto> recommend(@PathVariable Long userId) throws IOException {
         return recommendationService.recommend(userId);
     }
+
+    @GetMapping("/goods")
+    public List<?> recommendGoods(
+            @RequestParam Long userId
+    ) throws IOException {
+
+        return recommendationService.recommendGoods(userId);
+    }
+
+
 }

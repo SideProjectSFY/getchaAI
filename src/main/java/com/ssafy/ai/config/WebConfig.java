@@ -11,7 +11,8 @@ public class WebConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        return new RestTemplate();git reset
+
     }
 
     @Bean
